@@ -1,0 +1,1337 @@
+<!DOCTYPE html>
+<html lang="ru" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Архив Спецхрана-А | НКВД СССР [Конструктор и Анализатор МО]</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=VT323&family=PT+Serif:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        .font-typewriter {
+            font-family: 'Special Elite', monospace;
+        }
+        .font-terminal {
+            font-family: 'VT323', monospace;
+        }
+        .font-document {
+            font-family: 'PT Serif', serif;
+        }
+        
+        /* Paper texture background */
+        .paper-bg {
+            background-color: #f4ecd0;
+            background-image: radial-gradient(#e6dbb9 15%, transparent 16%), radial-gradient(#e3d6b0 15%, transparent 16%);
+            background-size: 60px 60px;
+            background-position: 0 0, 30px 30px;
+        }
+
+        /* CRT Terminal Theme background */
+        .crt-bg {
+            background-color: #081109;
+            color: #34d399;
+            background-image: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 4px, 6px 100%;
+        }
+
+        /* CRT Scanline & Glow effects */
+        .crt-scanlines {
+            position: relative;
+        }
+        .crt-scanlines::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.3) 50%);
+            background-size: 100% 4px;
+            z-index: 20;
+            pointer-events: none;
+            opacity: 0.6;
+        }
+
+        /* Red stamp effect */
+        .soviet-stamp {
+            border: 3px double #b91c1c;
+            color: #b91c1c;
+            font-weight: 900;
+            text-transform: uppercase;
+            padding: 4px 12px;
+            display: inline-block;
+            transform: rotate(-3deg);
+            letter-spacing: 2px;
+            animation: stamp-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes stamp-pop {
+            0% { transform: scale(2) rotate(-10deg); opacity: 0; }
+            100% { transform: scale(1) rotate(-3deg); opacity: 1; }
+        }
+
+        /* Redacted block styling */
+        .redacted {
+            background-color: #111;
+            color: #111;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.2s ease;
+            padding: 0 4px;
+            border-radius: 2px;
+        }
+        .redacted.revealed {
+            background-color: #fee2e2;
+            color: #b91c1c;
+            border-bottom: 1px dashed #b91c1c;
+        }
+
+        .terminal-glow {
+            text-shadow: 0 0 8px rgba(52, 211, 153, 0.6);
+        }
+
+        /* Alarm flashing overlay */
+        .alarm-active {
+            animation: alarm-flash 0.8s infinite alternate;
+        }
+        @keyframes alarm-flash {
+            0% { box-shadow: inset 0 0 50px rgba(185, 28, 28, 0.1); }
+            100% { box-shadow: inset 0 0 150px rgba(185, 28, 28, 0.6); }
+        }
+    </style>
+</head>
+<body class="h-full bg-zinc-950 text-zinc-800 font-document overflow-hidden">
+
+    <!-- AUTHORIZATION SCREEN -->
+    <div id="auth-screen" class="fixed inset-0 z-50 bg-zinc-950 flex flex-col items-center justify-center p-4">
+        <div class="max-w-md w-full bg-[#f4ecd0] border-4 border-zinc-800 p-8 shadow-2xl relative paper-bg">
+            <div class="absolute -top-4 left-1/2 -translate-x-1/2 bg-red-800 text-white font-typewriter text-xs px-4 py-1 uppercase tracking-widest border border-red-900 shadow">
+                Совершенно секретно • СК-А
+            </div>
+            
+            <div class="text-center mb-6 mt-2">
+                <h1 class="font-typewriter text-2xl font-bold tracking-wider text-zinc-900">СПЕЦХРАН-А НКВД СССР</h1>
+                <p class="font-terminal text-sm text-zinc-600 mt-1">ЦЕНТРАЛЬНАЯ БАЗА МАТЕРИАЛЬНЫХ ОТКЛОНЕНИЙ</p>
+            </div>
+
+            <div class="border-t border-b border-zinc-400 py-3 my-3 font-typewriter text-xs text-zinc-700 space-y-2">
+                <p>ВНИМАНИЕ! Доступ регламентирован Постановлением СНК СССР. Несанкционированный просмотр преследуется по ст. 58 УК РСФСР.</p>
+                <p class="text-red-800 font-bold">Выберите уровень допуска или введите шифр:</p>
+            </div>
+
+            <div class="space-y-3 font-typewriter">
+                <div>
+                    <label class="block text-xs font-bold text-zinc-700 mb-1">Уровень допуска сотрудника:</label>
+                    <select id="clearance-select" class="w-full bg-zinc-100 border-2 border-zinc-700 p-2 text-sm text-zinc-900 font-typewriter focus:outline-none focus:border-red-800">
+                        <!-- Dynamic Options populated by JS -->
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-zinc-700 mb-1">Табельный номер / Позывной:</label>
+                    <input type="text" id="agent-id" value="Агент-42" class="w-full bg-zinc-100 border-2 border-zinc-700 p-2 text-sm text-zinc-900 font-typewriter focus:outline-none focus:border-red-800">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-zinc-700 mb-1">Секретный шифр повышения (опционально):</label>
+                    <input type="password" id="secret-code" placeholder="LUBYANKA / BETA-1937" class="w-full bg-zinc-100 border-2 border-zinc-700 p-2 text-sm text-zinc-900 font-typewriter focus:outline-none focus:border-red-800">
+                </div>
+
+                <button onclick="authorizeUser()" class="w-full bg-red-900 hover:bg-red-800 text-white font-typewriter py-3 font-bold tracking-widest uppercase border border-red-950 shadow-md transition-colors mt-2">
+                    Авторизоваться в системе
+                </button>
+            </div>
+            
+            <div class="mt-4 text-center font-terminal text-xs text-zinc-500 flex justify-between items-center">
+                <span>Система «Сито» активна. Протоколирование включено.</span>
+                <button onclick="toggleAudio()" id="auth-sound-btn" class="text-zinc-700 underline text-[11px]">Звук: ВКЛ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN WORKSPACE -->
+    <div id="main-app" class="h-full flex flex-col hidden">
+        <!-- Top Terminal Status Bar -->
+        <header class="bg-zinc-900 text-zinc-300 border-b-2 border-zinc-800 px-4 py-2 flex items-center justify-between font-terminal text-sm z-30">
+            <div class="flex items-center space-x-4">
+                <span class="text-red-500 font-bold animate-pulse">● СВЯЗЬ С СЕТЬЮ УСТАНОВЛЕНА</span>
+            </div>
+            <div class="flex items-center space-x-2 md:space-x-4 text-xs md:text-sm">
+                <span>ДОПУСК: <strong id="display-clearance" class="text-red-400 uppercase">ГАММА</strong></span>
+                <span class="hidden sm:inline">ПОЛЬЗОВАТЕЛЬ: <strong id="display-user" class="text-zinc-100">Агент-42</strong></span>
+                
+                <!-- Main Header Actions -->
+                <button onclick="openCreateDocModal()" class="bg-red-900 hover:bg-red-800 text-red-100 px-2.5 py-1 border border-red-700 rounded font-terminal flex items-center gap-1 shadow">
+                    <span>+ ДЕЛО</span>
+                </button>
+                <button onclick="openClearanceModal()" class="bg-blue-900 hover:bg-blue-800 text-blue-100 px-2.5 py-1 border border-blue-700 rounded font-terminal flex items-center gap-1 shadow">
+                    <span>🔑 ДОПУСКИ</span>
+                </button>
+                <button onclick="openPasswordModal()" class="bg-purple-900 hover:bg-purple-800 text-purple-100 px-2.5 py-1 border border-purple-700 rounded font-terminal flex items-center gap-1 shadow">
+                    <span>🔒 ПАРОЛЬ</span>
+                </button>
+                <button onclick="openScannerModal()" class="bg-amber-900 hover:bg-amber-800 text-amber-100 px-2.5 py-1 border border-amber-700 rounded font-terminal flex items-center gap-1 shadow">
+                    <span>☢ СКАНЕР</span>
+                </button>
+                <button onclick="openTerminalModal()" class="bg-emerald-900 hover:bg-emerald-800 text-emerald-200 px-2.5 py-1 border border-emerald-700 rounded font-terminal flex items-center gap-1 shadow">
+                    <span>> ТЕРМИНАЛ</span>
+                </button>
+                <button onclick="toggleTheme()" id="theme-btn" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-2 py-1 border border-zinc-700 rounded">
+                    ТЕМА: БУМАГА
+                </button>
+                <button onclick="toggleAudio()" id="sound-btn" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-2 py-1 border border-zinc-700 rounded">
+                    ЗВУК: ВКЛ
+                </button>
+                <button onclick="lockSystem()" class="bg-red-950 hover:bg-red-900 text-red-200 px-2.5 py-1 border border-red-800 rounded">
+                    ВЫХОД
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content Area: Sidebar & Viewer -->
+        <div class="flex-1 flex overflow-hidden">
+            <!-- Sidebar Navigation & Search -->
+            <nav id="sidebar" class="w-80 bg-zinc-900 border-r border-zinc-800 flex flex-col overflow-y-auto">
+                <div class="p-4 border-b border-zinc-800 space-y-3">
+                    <div class="flex justify-between items-center">
+                        <h2 class="font-typewriter text-xs text-red-500 uppercase tracking-widest">Каталог Спецхрана-А</h2>
+                        <span id="doc-count" class="font-terminal text-xs text-zinc-500">8 дел</span>
+                    </div>
+                    <!-- Real-time search -->
+                    <div class="relative">
+                        <input type="text" id="archive-search" oninput="filterDocuments(this.value)" placeholder="Поиск по архиву..." class="w-full bg-zinc-950 border border-zinc-700 rounded px-3 py-1.5 text-xs text-zinc-200 font-typewriter focus:outline-none focus:border-red-600">
+                    </div>
+                    <!-- Category Filters -->
+                    <div class="flex gap-1 font-terminal text-[11px] overflow-x-auto pb-1">
+                        <button onclick="filterCategory('all')" class="cat-btn bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded border border-zinc-700 active-cat">Все</button>
+                        <button onclick="filterCategory('Нормативные акты')" class="cat-btn bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded border border-zinc-700">Акты</button>
+                        <button onclick="filterCategory('Материальные отклонения')" class="cat-btn bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded border border-zinc-700">МО</button>
+                        <button onclick="filterCategory('Журнал инцидентов')" class="cat-btn bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded border border-zinc-700">Инциденты</button>
+                        <button onclick="filterCategory('Пользовательские')" class="cat-btn bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded border border-zinc-700">Свои</button>
+                    </div>
+                </div>
+
+                <div id="document-nav-list" class="p-2 space-y-1 font-typewriter text-xs flex-1">
+                    <!-- Dynamic Document Navigation Buttons generated by JS -->
+                </div>
+
+                <div class="p-3 border-t border-zinc-800 font-terminal text-xs text-zinc-500 flex justify-between items-center bg-zinc-950">
+                    <button onclick="exportUserData()" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-2 py-1 rounded text-[11px]">💾 Экспорт</button>
+                    <label class="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-2 py-1 rounded text-[11px] cursor-pointer">
+                        📂 Импорт
+                        <input type="file" id="import-file" onchange="importUserData(event)" accept=".json" class="hidden">
+                    </label>
+                    <button onclick="resetDatabase()" class="bg-red-950 hover:bg-red-900 text-red-300 px-2 py-1 rounded text-[11px]" title="Сбросить к заводским">🔄 Сброс</button>
+                    <button onclick="printCurrentDocument()" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-2 py-1 rounded text-[11px]">🖨️ Печать</button>
+                </div>
+            </nav>
+
+            <!-- Main Document Viewer Area -->
+            <main id="viewer-wrapper" class="flex-1 bg-zinc-900 p-6 overflow-y-auto flex justify-center items-start transition-colors duration-300">
+                <div id="doc-container" class="max-w-3xl w-full bg-[#f4ecd0] text-zinc-900 border-2 border-zinc-700 shadow-2xl p-10 paper-bg relative min-h-[780px] flex flex-col transition-all">
+                    <!-- Dynamic Document Content injected via JS -->
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- CREATE / EDIT DOCUMENT MODAL -->
+    <div id="create-doc-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="max-w-2xl w-full bg-[#f4ecd0] border-4 border-zinc-800 p-6 shadow-2xl paper-bg text-zinc-900 font-typewriter max-h-[90vh] flex flex-col overflow-hidden">
+            <div class="flex justify-between items-center border-b-2 border-zinc-800 pb-2 mb-4">
+                <h3 id="create-modal-title" class="text-lg font-bold text-red-900 uppercase">СОЗДАНИЕ НОВОГО ДЕЛА СПЕЦХРАНА</h3>
+                <button onclick="closeCreateDocModal()" class="text-zinc-700 font-bold hover:text-red-800 px-2 text-xl">✕</button>
+            </div>
+
+            <form id="create-doc-form" onsubmit="saveCustomDocument(event)" class="space-y-3 overflow-y-auto pr-2 flex-1 text-xs">
+                <input type="hidden" id="edit-doc-key" value="">
+                
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-bold text-zinc-800 mb-1">Индекс / Шифр дела:</label>
+                        <input type="text" id="doc-input-id" required placeholder="Например: МО-512" class="w-full bg-zinc-100 border border-zinc-700 p-2 font-typewriter focus:border-red-800">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-zinc-800 mb-1">Название дела:</label>
+                        <input type="text" id="doc-input-title" required placeholder="Например: «Черный Туман»" class="w-full bg-zinc-100 border border-zinc-700 p-2 font-typewriter focus:border-red-800">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-bold text-zinc-800 mb-1">Подзаголовок / Локация / Сектор:</label>
+                    <input type="text" id="doc-input-subtitle" placeholder="Например: Спецобъект-12, Свердловская область" class="w-full bg-zinc-100 border border-zinc-700 p-2 font-typewriter focus:border-red-800">
+                </div>
+
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label class="block font-bold text-zinc-800 mb-1">Категория:</label>
+                        <select id="doc-input-category" class="w-full bg-zinc-100 border border-zinc-700 p-2 font-typewriter">
+                            <option value="Материальные отклонения">Материальные отклонения</option>
+                            <option value="Нормативные акты">Нормативные акты</option>
+                            <option value="Журнал инцидентов">Журнал инцидентов</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-bold text-zinc-800 mb-1">Допуск:</label>
+                        <select id="doc-input-clearance" class="w-full bg-zinc-100 border border-zinc-700 p-2 font-typewriter">
+                            <!-- Dynamic clearances -->
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-bold text-zinc-800 mb-1">Штамп / Гриф:</label>
+                        <input type="text" id="doc-input-stamp" value="АРХИВ НКВД" placeholder="АРХИВ НКВД / ОПАСНО" class="w-full bg-zinc-100 border border-zinc-700 p-2 font-typewriter focus:border-red-800">
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="block font-bold text-zinc-800">Текст документа:</label>
+                        <button type="button" onclick="insertRedactedTag()" class="text-[10px] bg-zinc-800 text-white px-2 py-0.5 rounded">Вставить [[Засекречено|уровень]]</button>
+                    </div>
+                    <textarea id="doc-input-content" rows="8" required placeholder="Введите текст дела... Для засекречивания фрагментов используйте формат: [[Засекреченный текст|уровень_цифра]]" class="w-full bg-zinc-100 border border-zinc-700 p-2 font-document text-sm focus:border-red-800"></textarea>
+                </div>
+
+                <div class="pt-2 flex justify-end gap-3 border-t border-zinc-400">
+                    <button type="button" onclick="closeCreateDocModal()" class="bg-zinc-700 text-white px-4 py-2 uppercase font-bold text-xs">Отмена</button>
+                    <button type="submit" class="bg-red-900 hover:bg-red-800 text-white px-5 py-2 uppercase font-bold text-xs">Сохранить дело</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- CLEARANCE MANAGEMENT MODAL -->
+    <div id="clearance-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="max-w-lg w-full bg-[#f4ecd0] border-4 border-zinc-800 p-6 shadow-2xl paper-bg text-zinc-900 font-typewriter">
+            <div class="flex justify-between items-center border-b-2 border-zinc-800 pb-2 mb-4">
+                <h3 class="text-lg font-bold text-blue-900 uppercase">УПРАВЛЕНИЕ УРОВНЯМИ ДОПУСКА</h3>
+                <button onclick="closeClearanceModal()" class="text-zinc-700 font-bold hover:text-red-800 px-2 text-xl">✕</button>
+            </div>
+
+            <div class="space-y-4 text-xs">
+                <div>
+                    <p class="mb-2 text-zinc-700">Существующие уровни допуска в системе:</p>
+                    <div id="clearance-list-container" class="space-y-1 max-h-36 overflow-y-auto bg-zinc-100 p-2 border border-zinc-400">
+                        <!-- Dynamic list -->
+                    </div>
+                </div>
+
+                <div class="border-t border-zinc-400 pt-3">
+                    <h4 class="font-bold text-zinc-900 mb-2">Добавить новый допуск:</h4>
+                    <form onsubmit="addNewClearance(event)" class="space-y-2">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block font-bold mb-1">Код допуска (англ.):</label>
+                                <input type="text" id="new-clr-key" required placeholder="delta / zeta" class="w-full bg-zinc-100 border border-zinc-700 p-1.5 font-typewriter">
+                            </div>
+                            <div>
+                                <label class="block font-bold mb-1">Приоритет (число от 1 до 10):</label>
+                                <input type="number" id="new-clr-level" required min="1" max="10" value="3" class="w-full bg-zinc-100 border border-zinc-700 p-1.5 font-typewriter">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block font-bold mb-1">Название на русском:</label>
+                            <input type="text" id="new-clr-name" required placeholder="ДЕЛЬТА [Старший инспектор]" class="w-full bg-zinc-100 border border-zinc-700 p-1.5 font-typewriter">
+                        </div>
+                        <div class="flex justify-end pt-2">
+                            <button type="submit" class="bg-blue-900 hover:bg-blue-800 text-white px-4 py-2 uppercase font-bold">Добавить допуск</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PASSWORD / SHIFT MODAL -->
+    <div id="password-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="max-w-md w-full bg-[#f4ecd0] border-4 border-zinc-800 p-6 shadow-2xl paper-bg text-zinc-900 font-typewriter">
+            <div class="flex justify-between items-center border-b-2 border-zinc-800 pb-2 mb-4">
+                <h3 class="text-lg font-bold text-purple-900 uppercase">СМЕНА ПАРОЛЯ И ШИФРОВ</h3>
+                <button onclick="closePasswordModal()" class="text-zinc-700 font-bold hover:text-red-800 px-2 text-xl">✕</button>
+            </div>
+
+            <form onsubmit="savePasswordSettings(event)" class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-bold text-zinc-800 mb-1">Ваш позывной / имя агента:</label>
+                    <input type="text" id="pwd-modal-agent" class="w-full bg-zinc-100 border border-zinc-700 p-2 font-typewriter" required>
+                </div>
+                <div>
+                    <label class="block font-bold text-zinc-800 mb-1">Личный пароль доступа:</label>
+                    <input type="password" id="pwd-modal-pass" placeholder="Новый личный пароль" class="w-full bg-zinc-100 border border-zinc-700 p-2 font-typewriter">
+                </div>
+                <div>
+                    <label class="block font-bold text-zinc-800 mb-1">Мастер-шифр повышения (например: LUBYANKA):</label>
+                    <input type="text" id="pwd-modal-secret" placeholder="LUBYANKA или BETA-1937" class="w-full bg-zinc-100 border border-zinc-700 p-2 font-typewriter">
+                </div>
+
+                <div class="pt-2 flex justify-end gap-2 border-t border-zinc-400">
+                    <button type="button" onclick="closePasswordModal()" class="bg-zinc-700 text-white px-3 py-2 uppercase font-bold">Отмена</button>
+                    <button type="submit" class="bg-purple-900 hover:bg-purple-800 text-white px-4 py-2 uppercase font-bold">Сохранить пароль</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ANOMALY SCANNER MODAL -->
+    <div id="scanner-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="max-w-xl w-full bg-zinc-950 border-2 border-amber-600 rounded shadow-2xl overflow-hidden crt-scanlines flex flex-col font-terminal text-amber-400 p-6 space-y-4">
+            <div class="flex justify-between items-center border-b border-amber-800 pb-2">
+                <h3 class="text-xl font-bold tracking-wider">☢ СПЕЦ-СКАНЕР АНОМАЛИЙ «ВЕКТОР-2»</h3>
+                <button onclick="closeScannerModal()" class="text-amber-600 hover:text-white font-bold text-xl">✕</button>
+            </div>
+
+            <p class="text-xs text-amber-500">Система анализа физических, биологических и пси-излучений объектов Спецхрана.</p>
+
+            <div class="space-y-3 bg-zinc-900 p-4 border border-amber-900 rounded">
+                <div>
+                    <label class="block text-xs mb-1">Выберите дело для спектрального анализа:</label>
+                    <select id="scanner-doc-select" class="w-full bg-zinc-950 border border-amber-700 text-amber-300 p-2 font-terminal">
+                        <!-- Dynamic options -->
+                    </select>
+                </div>
+
+                <button onclick="runAnomalyScan()" class="w-full bg-amber-900 hover:bg-amber-800 text-amber-100 py-2 font-bold uppercase tracking-widest border border-amber-700">
+                    ЗАПУСТИТЬ СКАНИРОВАНИЕ
+                </button>
+            </div>
+
+            <div id="scanner-output" class="min-h-[160px] bg-zinc-950 border border-amber-900 p-3 text-xs space-y-1 overflow-y-auto">
+                <span class="text-zinc-600">> Сканер готов к работе. Ожидание вызова...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- TERMINAL MODAL -->
+    <div id="terminal-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="max-w-2xl w-full bg-zinc-950 border-2 border-emerald-500/80 rounded shadow-2xl overflow-hidden crt-scanlines flex flex-col h-[540px]">
+            <div class="bg-zinc-900 px-4 py-2 border-b border-emerald-800 flex justify-between items-center text-emerald-400 font-terminal text-sm">
+                <div class="flex items-center gap-2">
+                    <span class="inline-block w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>ТЕРМИНАЛ ОБЪЕКТА КРАСНОЗНАМЕНСК-16 (VT-323)</span>
+                </div>
+                <button onclick="closeTerminalModal()" class="text-zinc-400 hover:text-white font-bold px-2">✕</button>
+            </div>
+            
+            <div id="terminal-output" class="flex-1 p-4 font-terminal text-emerald-400 text-lg overflow-y-auto space-y-2 selection:bg-emerald-900 selection:text-white">
+                <div>Служебный терминал НКВД СССР. Версия ПО: 2.5.0-ГОСТ (Конструктор активен).</div>
+                <div>Введите <span class="text-yellow-400">help</span> для получения списка доступных команд.</div>
+                <div class="border-b border-emerald-900 my-2"></div>
+            </div>
+
+            <div class="p-3 bg-zinc-900 border-t border-emerald-900 flex items-center gap-2 font-terminal">
+                <span class="text-emerald-500 font-bold">NKVD@specxran:~#</span>
+                <input type="text" id="terminal-input" onkeydown="handleTerminalInput(event)" autofocus class="flex-1 bg-transparent text-emerald-300 font-terminal text-lg focus:outline-none placeholder-emerald-800" placeholder="Введите команду...">
+                <button onclick="executeCommandFromInput()" class="bg-emerald-900 hover:bg-emerald-800 text-emerald-200 px-3 py-1 rounded text-sm">ВВОД</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- GENERIC MESSAGE / ALERT MODAL -->
+    <div id="message-modal" class="fixed inset-0 z-50 bg-black/70 hidden flex items-center justify-center p-4">
+        <div class="max-w-md w-full bg-[#f4ecd0] border-4 border-zinc-800 p-6 shadow-2xl paper-bg text-zinc-900 font-typewriter">
+            <h3 id="modal-title" class="text-lg font-bold text-red-900 mb-2 uppercase border-b border-zinc-400 pb-1">СООБЩЕНИЕ СИСТЕМЫ</h3>
+            <p id="modal-text" class="text-sm my-4 text-zinc-800 leading-relaxed"></p>
+            <div class="flex justify-end gap-2 mt-4">
+                <button onclick="closeMessageModal()" class="bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2 text-xs uppercase tracking-wider font-bold">Подтвердить</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- WEB AUDIO API AUDIO ENGINE ---
+        let audioCtx = null;
+        let soundEnabled = true;
+
+        function getAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        function playClickSound() {
+            if (!soundEnabled) return;
+            try {
+                const ctx = getAudioContext();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(140, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.03);
+                gain.gain.setValueAtTime(0.12, ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.03);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.03);
+            } catch (e) {}
+        }
+
+        function playStampSound() {
+            if (!soundEnabled) return;
+            try {
+                const ctx = getAudioContext();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(90, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(25, ctx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.4, ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.15);
+            } catch (e) {}
+        }
+
+        function playTerminalBeep() {
+            if (!soundEnabled) return;
+            try {
+                const ctx = getAudioContext();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(800, ctx.currentTime);
+                gain.gain.setValueAtTime(0.05, ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.001, ctx.currentTime + 0.05);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.05);
+            } catch (e) {}
+        }
+
+        function playAlarmSound() {
+            if (!soundEnabled) return;
+            try {
+                const ctx = getAudioContext();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(440, ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(880, ctx.currentTime + 0.3);
+                osc.frequency.linearRampToValueAtTime(440, ctx.currentTime + 0.6);
+                gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.6);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.6);
+            } catch (e) {}
+        }
+
+        function toggleAudio() {
+            soundEnabled = !soundEnabled;
+            const btn1 = document.getElementById('sound-btn');
+            const btn2 = document.getElementById('auth-sound-btn');
+            const txt = soundEnabled ? 'ЗВУК: ВКЛ' : 'ЗВУК: ВЫКЛ';
+            if (btn1) btn1.innerText = txt;
+            if (btn2) btn2.innerText = txt;
+            if (soundEnabled) playClickSound();
+        }
+
+        // --- STATE MANAGEMENT ---
+        let currentUser = {
+            id: 'Агент-42',
+            clearance: 'gamma',
+            password: ''
+        };
+
+        let currentTheme = 'paper';
+        let currentDocKey = 'sitom';
+        let activeCategoryFilter = 'all';
+
+        let clearanceLevels = {
+            'omega': 1,
+            'lambda': 2,
+            'gamma': 3,
+            'beta': 4,
+            'alpha': 5
+        };
+
+        let clearanceDisplayNames = {
+            'omega': 'ОМЕГА [Спецконтингент / Расходник]',
+            'lambda': 'ЛЯМБДА [Полевой агент / Дознаватель]',
+            'gamma': 'ГАММА [Начальник направления]',
+            'beta': 'БЕТА [Заместитель директора]',
+            'alpha': 'АЛЬФА [Директор / Высший совет]'
+        };
+
+        // --- INITIAL DEFAULT DOCUMENTS DATABASE ---
+        const defaultDocuments = {
+            'sitom': {
+                id: 'ЦИРКУЛЯР № 43',
+                title: "ЦИРКУЛЯР № 43/С-А",
+                subtitle: "О выявлении признаков материальных отклонений в сводках милиции",
+                clearance: "gamma",
+                category: "Нормативные акты",
+                stamp: "АРХИВ НКВД СССР",
+                content: `В связи с участившимися случаями привлечения внимания гражданского населения к неизученным физическим и биологическим явлениям, приказываю усилить бдительность при первичном анализе входящей документации Главного управления милиции.
+
+Любая огласка фактов существования материальных отклонений (МО) является [[идеологической диверсией|3]], подрывающей основы научного материализма. Задача внедренных архивистов — оперативно выявлять в потоке бытовых сводок истинные МО.
+
+1. Биологические и медицинские маркеры:
+- Нетипичные посмертные изменения: «тело обратилось в пыль/слизь», «отсутствие внутренних органов без следов хирургии».
+- Нарушение законов анатомии: «субъект перенес воздействие открытого огня без ожогов».
+- Массовый психоз, сопровождающийся одинаковыми галлюцинациями у изолированных лиц.
+
+2. Протокол действий (Система «Сито»):
+При обнаружении признаков МО сотрудник Спецархива обязан немедленно изъять оригинал дела из документооборота. В картотеку территориального отдела УГРО помещается фиктивная резолюция: [[«Дело передано в Транспортный отдел НКВД для спецпроверки»|3]].`
+            },
+            'tabula': {
+                id: 'ПРОТОКОЛ-ТАБУЛА',
+                title: "ПРОТОКОЛ «ТАБУЛА РАСА»",
+                subtitle: "Инструкция по химико-неврологическому вытеснению памяти",
+                clearance: "lambda",
+                category: "Нормативные акты",
+                stamp: "МЕДОТДЕЛ НКВД",
+                content: `Метод предназначен для ликвидации следов кратковременной памяти у свидетелей «Несущественных» и «Особых» материальных отклонений без применения летальных средств.
+
+Технологическая база:
+1. Фармакология (Агенты группы «С»): Внутривенное введение препарата блокирует закрепление кратковременной памяти в долговременную.
+2. Физическое воздействие (Аппарат «Луч-4»): Направленный электромагнитный импульс в височные доли обнуляет синаптическую активность.
+
+Порядок проведения:
+- Оцепление района силами внутренней охраны [[[Кси]|2]].
+- Введение препарата «С-2» и воздействие аппаратом «Луч-4» под видом санитарной обработки.
+- Внедрение замещающего воспоминания: [[«Вы отравились угарным газом на производстве»|2]].`
+            },
+            'mo042': {
+                id: 'МО-042',
+                title: "МО-042 «Агрегат К-7»",
+                subtitle: "Объект-Краснознаменск-16, Цех №4",
+                clearance: "gamma",
+                category: "Материальные отклонения",
+                stamp: "В ПРОИЗВОДСТВЕ",
+                content: `1. Описание: Металлообрабатывающий станок неизвестной серии. Станина выполнена из неизученной формы сверхплотного углерода. Источник питания отсутствует.
+
+2. Аномальные свойства: Способен обрабатывать любые материалы с нулевым износом и абсолютной микронной точностью. Детали обладают прочностью на 400% выше расчетной.
+
+3. Протокол эксплуатации: Движущей силой станка является биологическая энергия центральной нервной системы. В качестве привода используются исключительно заключенные контингента [[категории Омега|1]].
+
+Резолюция: Нервная система субъекта полностью выгорает за 72-96 часов непрерывной работы. Запрещено использовать лиц с высшим образованием во избежание несанкционированных аномальных свойств деталей.`
+            },
+            'mo102': {
+                id: 'МО-102',
+                title: "МО-102 «Рой»",
+                subtitle: "Зона отчуждения «Сектор-8», Красноярский край",
+                clearance: "gamma",
+                category: "Материальные отклонения",
+                stamp: "УГРОЗА ЛИКВИДАЦИИ",
+                content: `1. Описание: Популяция гигантских ос (длина до 40 см, размах крыльев до 65 см). Хитин выдерживает попадание мелкокалиберных пуль с 15 метров.
+
+2. Репродуктивный цикл: Парализуют жертву нейротоксином и внедряют от 10 до 30 личинок в мягкие ткани. Полный цикл созревания личинок — 36 часов.
+
+3. Попытка истребления (1937 г.): Применение огнесмесей и химикатов привело к [[взрывному репродуктивному скачку матки|3]] и гибели 14 бойцов охраны.
+
+4. Режим содержания: Двойной периметр с вышками и роторными огнеметами. Доступ разрешен только смертникам категории [[Омега|1]] для поддержания стационарного состояния роя.`
+            },
+            'mo001': {
+                id: 'МО-001',
+                title: "МО-001 «Король в жёлтом»",
+                subtitle: "Иномирье (Прямой доступ заблокирован)",
+                clearance: "alpha",
+                category: "Материальные отклонения",
+                stamp: "ГРИФ: ТОЛЬКО АЛЬФА",
+                content: `1. Природа объекта: Доминирующая сущность Иномирья. Гуманоидная фигура в изношенном жёлтом плаще с бледной фарфоровой маской. Стремится к тотальному ментальному контролю разумных существ.
+
+2. Механизм экспансии: Не имея возможности проникнуть в наш мир из-за [[материалистического купола советской идеологии|5]], объект использует информационные векторы (МО-234 и МО-056).
+
+Особое указание директориата: Любое упоминание сущности в печати или искусстве карается немедленной изоляцией автора в спецпсихбольнице. Атеизм и научный материализм признаны государственным протоколом сдерживания МО-001.`
+            },
+            'incident_theater': {
+                id: 'ИНЦИДЕНТ-44',
+                title: "РАПОРТ ГРУППЫ «ТЕТА»",
+                subtitle: "Отчет о зачистке Ленинградского Академического театра драмы",
+                clearance: "gamma",
+                category: "Журнал инцидентов",
+                stamp: "УОР НКВД",
+                content: `1. Изоляция: Сигнал о проявлении МО-234 поступил в 23:18. Здание театра заблокировано в 23:40 под видом учений гражданской обороны.
+
+2. Зачистка эпицентра: В пошивочно-декорационном цехе обнаружен холст с символом МО-234. Наброшено свинцовое покрывало «Завеса-3».
+
+Потери личного состава: Красноармеец Власов Т.Д. зафиксировал объект прямым взглядом. Зафиксирован приступ фокальной эпилепсии. Боец изолирован и направлен на Объект-44.
+
+3. Обработка свидетелей: 11 гражданских лиц обработаны аппаратом «Луч-4» и препаратом «С-2». Сформирована ложная память о [[локальном возгорании проводки|3]].`
+            }
+        };
+
+        let documents = {};
+
+        // --- LOCAL STORAGE ENGINE ---
+        function loadDatabaseFromStorage() {
+            const storedDocs = localStorage.getItem('specxran_docs');
+            if (storedDocs) {
+                try {
+                    documents = JSON.parse(storedDocs);
+                } catch (e) {
+                    documents = { ...defaultDocuments };
+                }
+            } else {
+                documents = { ...defaultDocuments };
+            }
+
+            const storedClr = localStorage.getItem('specxran_clearances');
+            if (storedClr) {
+                try {
+                    clearanceLevels = JSON.parse(storedClr);
+                } catch (e) {}
+            }
+
+            const storedNames = localStorage.getItem('specxran_clr_names');
+            if (storedNames) {
+                try {
+                    clearanceDisplayNames = JSON.parse(storedNames);
+                } catch (e) {}
+            }
+
+            populateClearanceSelects();
+        }
+
+        function saveDatabaseToStorage() {
+            localStorage.setItem('specxran_docs', JSON.stringify(documents));
+            localStorage.setItem('specxran_clearances', JSON.stringify(clearanceLevels));
+            localStorage.setItem('specxran_clr_names', JSON.stringify(clearanceDisplayNames));
+        }
+
+        function resetDatabase() {
+            playStampSound();
+            if (confirm("Вы действительно хотите сбросить архив к заводским настройкам? Все ваши изменения будут удалены.")) {
+                localStorage.removeItem('specxran_docs');
+                localStorage.removeItem('specxran_clearances');
+                localStorage.removeItem('specxran_clr_names');
+                documents = { ...defaultDocuments };
+                clearanceLevels = { 'omega': 1, 'lambda': 2, 'gamma': 3, 'beta': 4, 'alpha': 5 };
+                clearanceDisplayNames = {
+                    'omega': 'ОМЕГА [Спецконтингент / Расходник]',
+                    'lambda': 'ЛЯМБДА [Полевой агент / Дознаватель]',
+                    'gamma': 'ГАММА [Начальник направления]',
+                    'beta': 'БЕТА [Заместитель директора]',
+                    'alpha': 'АЛЬФА [Директор / Высший совет]'
+                };
+                loadDatabaseFromStorage();
+                renderSidebarNav();
+                loadDocument('sitom');
+                showModal('СБРОС ВЫПОЛНЕН', 'База данных восстановлена до исходного состояния.');
+            }
+        }
+
+        function populateClearanceSelects() {
+            const selects = [document.getElementById('clearance-select'), document.getElementById('doc-input-clearance')];
+            selects.forEach(select => {
+                if (!select) return;
+                const currentVal = select.value;
+                select.innerHTML = '';
+                Object.keys(clearanceLevels).forEach(key => {
+                    const opt = document.createElement('option');
+                    opt.value = key;
+                    opt.innerText = clearanceDisplayNames[key] || key.toUpperCase();
+                    if (key === currentVal) opt.selected = true;
+                    select.appendChild(opt);
+                });
+                if (!select.value && Object.keys(clearanceLevels).length > 0) {
+                    select.value = Object.keys(clearanceLevels)[0];
+                }
+            });
+        }
+
+        // --- TEXT PARSER FOR REDACTED TAGS ---
+        function parseDocumentContent(rawText) {
+            return rawText.replace(/\[\[(.*?)\Vert{}(.*?)\]\]/g, (match, text, level) => {
+                let lvlKeyOrNum = level.trim();
+                let reqLevel = 2;
+                if (!isNaN(lvlKeyOrNum)) {
+                    reqLevel = parseInt(lvlKeyOrNum);
+                } else {
+                    reqLevel = clearanceLevels[lvlKeyOrNum] || 2;
+                }
+                return `<span class="redacted" onclick="revealRedaction(this, ${reqLevel})">${text}</span>`;
+            }).replace(/\n/g, '<br>');
+        }
+
+        // --- AUTHORIZATION & SHIFT CODES ---
+        function authorizeUser() {
+            playClickSound();
+            const select = document.getElementById('clearance-select');
+            const agentInput = document.getElementById('agent-id');
+            const secretInput = document.getElementById('secret-code');
+            
+            let clearance = select.value;
+            const secret = secretInput.value.trim().toUpperCase();
+
+            if (secret === 'LUBYANKA' || secret === 'ALPHA-99') {
+                clearance = 'alpha';
+                showModal('ШИФР ПРИНЯТ', 'Активирован высший уровень доступа [АЛЬФА] по директиве Наркома.');
+            } else if (secret === 'BETA-1937') {
+                clearance = 'beta';
+                showModal('ШИФР ПРИНЯТ', 'Активирован уровень допуска [БЕТА].');
+            }
+
+            currentUser.clearance = clearance;
+            currentUser.id = agentInput.value.trim() || 'Агент-УК';
+
+            document.getElementById('display-clearance').innerText = clearance.toUpperCase();
+            document.getElementById('display-user').innerText = currentUser.id;
+
+            select.value = clearance;
+
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('main-app').classList.remove('hidden');
+
+            playStampSound();
+            renderSidebarNav();
+            loadDocument(Object.keys(documents)[0] || 'sitom');
+        }
+
+        function lockSystem() {
+            playClickSound();
+            document.getElementById('main-app').classList.add('hidden');
+            document.getElementById('auth-screen').classList.remove('hidden');
+        }
+
+        // --- SIDEBAR NAVIGATION RENDERER ---
+        function renderSidebarNav() {
+            const listContainer = document.getElementById('document-nav-list');
+            listContainer.innerHTML = '';
+
+            let count = 0;
+            const keys = Object.keys(documents);
+
+            keys.forEach(key => {
+                const doc = documents[key];
+
+                if (activeCategoryFilter !== 'all') {
+                    if (activeCategoryFilter === 'Пользовательские' && !doc.isCustom) return;
+                    if (activeCategoryFilter !== 'Пользовательские' && doc.category !== activeCategoryFilter) return;
+                }
+
+                count++;
+
+                const btn = document.createElement('button');
+                btn.setAttribute('data-key', key);
+                btn.onclick = () => loadDocument(key);
+                btn.className = `nav-btn w-full text-left px-3 py-2 hover:bg-zinc-800 text-zinc-300 rounded transition-colors flex items-center justify-between group ${key === currentDocKey ? 'bg-zinc-800 border-l-4 border-red-600' : ''}`;
+
+                let badgeColor = 'text-zinc-500';
+                if (doc.clearance === 'alpha') badgeColor = 'text-red-600 font-bold';
+                else if (doc.clearance === 'beta') badgeColor = 'text-red-400';
+                else if (doc.clearance === 'gamma') badgeColor = 'text-amber-500';
+
+                btn.innerHTML = `
+                    <div class="truncate pr-2">
+                        <div class="truncate">${doc.title}</div>
+                        ${doc.isCustom ? '<span class="text-[9px] text-emerald-400 font-terminal">[Свое]</span>' : ''}
+                    </div>
+                    <span class="text-[10px] ${badgeColor} uppercase">${doc.clearance}</span>
+                `;
+
+                listContainer.appendChild(btn);
+            });
+
+            document.getElementById('doc-count').innerText = `${count} дел`;
+        }
+
+        // --- DOCUMENT VIEWER ---
+        function loadDocument(docKey) {
+            playClickSound();
+            currentDocKey = docKey;
+            const doc = documents[docKey];
+            if (!doc) return;
+
+            if (doc.clearance === 'alpha' || docKey === 'mo102') {
+                playAlarmSound();
+                document.body.classList.add('alarm-active');
+                setTimeout(() => document.body.classList.remove('alarm-active'), 1200);
+            }
+
+            renderSidebarNav();
+
+            const userLevelNum = clearanceLevels[currentUser.clearance] || 1;
+            const requiredLevelNum = clearanceLevels[doc.clearance] || 1;
+
+            const container = document.getElementById('doc-container');
+
+            if (userLevelNum < requiredLevelNum) {
+                container.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-full my-auto text-center py-20">
+                        <div class="soviet-stamp text-red-800 text-lg mb-4">ДОСТУП ЗАПРЕЩЕН</div>
+                        <h2 class="font-typewriter text-2xl font-bold mb-2">НЕДОСТАТОЧНЫЙ УРОВЕНЬ ДОПУСКА</h2>
+                        <p class="font-typewriter text-sm max-w-md">
+                            Для чтения документа <strong>«${doc.title}»</strong> требуется допуск не ниже <span class="uppercase font-bold text-red-900">${doc.clearance}</span>. Ваш текущий уровень: <span class="uppercase font-bold">${currentUser.clearance}</span>.
+                        </p>
+                        <p class="font-terminal text-xs mt-6 opacity-70">Попытка несанкционированного доступа зафиксирована контрразведкой [Кси].</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const formattedContent = parseDocumentContent(doc.content);
+
+            container.innerHTML = `
+                <div class="flex justify-between items-start mb-6 border-b-2 border-zinc-800 pb-4">
+                    <div>
+                        <span class="font-typewriter text-xs text-zinc-600 uppercase tracking-widest">${doc.category || 'ДОКУМЕНТ СПЕЦХРАНА'}</span>
+                        <h2 class="font-typewriter text-2xl font-bold mt-1">${doc.title}</h2>
+                        <p class="font-terminal text-xs text-zinc-700">${doc.subtitle || ''}</p>
+                    </div>
+                    <div class="flex flex-col items-end gap-2">
+                        <div class="soviet-stamp text-xs">${doc.stamp || 'АРХИВ НКВД'}</div>
+                        <div class="flex gap-1 text-[11px] font-terminal mt-2">
+                            <button onclick="editAnyDoc('${docKey}')" class="bg-amber-900 hover:bg-amber-800 text-white px-2 py-0.5 rounded shadow">Редактировать</button>
+                            ${doc.isCustom ? `<button onclick="deleteCustomDoc('${docKey}')" class="bg-red-900 hover:bg-red-800 text-white px-2 py-0.5 rounded shadow">Удалить</button>` : ''}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="font-document text-sm leading-relaxed space-y-4">
+                    ${formattedContent}
+                </div>
+            `;
+        }
+
+        // --- REDACTION REVEAL ---
+        function revealRedaction(element, requiredLevelNum = 2) {
+            playClickSound();
+            const userLevelNum = clearanceLevels[currentUser.clearance] || 1;
+            
+            if (userLevelNum >= requiredLevelNum) {
+                element.classList.toggle('revealed');
+            } else {
+                showModal('ОШИБКА ДЕШИФРОВКИ', 'Ваш уровень допуска не позволяет расшифровать данный фрагмент данных.');
+            }
+        }
+
+        // --- CREATE / EDIT CUSTOM DOCUMENT LOGIC ---
+        function openCreateDocModal() {
+            playClickSound();
+            document.getElementById('edit-doc-key').value = '';
+            document.getElementById('create-modal-title').innerText = 'СОЗДАНИЕ НОВОГО ДЕЛА СПЕЦХРАНА';
+            document.getElementById('create-doc-form').reset();
+            populateClearanceSelects();
+            document.getElementById('create-doc-modal').classList.remove('hidden');
+        }
+
+        function closeCreateDocModal() {
+            playClickSound();
+            document.getElementById('create-doc-modal').classList.add('hidden');
+        }
+
+        function insertRedactedTag() {
+            playClickSound();
+            const textarea = document.getElementById('doc-input-content');
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const selectedText = textarea.value.substring(start, end) || 'Секретная информация';
+            const tag = `[[${selectedText}|2]]`;
+            textarea.value = textarea.value.substring(0, start) + tag + textarea.value.substring(end);
+        }
+
+        function saveCustomDocument(e) {
+            e.preventDefault();
+            playStampSound();
+
+            const editKey = document.getElementById('edit-doc-key').value;
+            const id = document.getElementById('doc-input-id').value.trim();
+            const title = document.getElementById('doc-input-title').value.trim();
+            const subtitle = document.getElementById('doc-input-subtitle').value.trim();
+            const category = document.getElementById('doc-input-category').value;
+            const clearance = document.getElementById('doc-input-clearance').value;
+            const stamp = document.getElementById('doc-input-stamp').value.trim() || 'СЕКРЕТНО';
+            const content = document.getElementById('doc-input-content').value;
+
+            const docKey = editKey || ('custom_' + Date.now());
+
+            documents[docKey] = {
+                id: id,
+                title: title,
+                subtitle: subtitle,
+                clearance: clearance,
+                category: category,
+                stamp: stamp,
+                isCustom: editKey ? documents[editKey].isCustom : true,
+                content: content
+            };
+
+            saveDatabaseToStorage();
+            closeCreateDocModal();
+            renderSidebarNav();
+            loadDocument(docKey);
+
+            showModal('ДЕЛО ЗАРЕГИСТРИРОВАНО', `Документ «${title}» успешно сохранен в реестре Спецхрана-А.`);
+        }
+
+        function editAnyDoc(key) {
+            playClickSound();
+            const doc = documents[key];
+            if (!doc) return;
+
+            populateClearanceSelects();
+            document.getElementById('edit-doc-key').value = key;
+            document.getElementById('create-modal-title').innerText = 'РЕДАКТИРОВАНИЕ ДЕЛА: ' + doc.id;
+            document.getElementById('doc-input-id').value = doc.id;
+            document.getElementById('doc-input-title').value = doc.title;
+            document.getElementById('doc-input-subtitle').value = doc.subtitle || '';
+            document.getElementById('doc-input-category').value = doc.category || 'Материальные отклонения';
+            document.getElementById('doc-input-clearance').value = doc.clearance;
+            document.getElementById('doc-input-stamp').value = doc.stamp || 'АРХИВ НКВД';
+            document.getElementById('doc-input-content').value = doc.content;
+
+            document.getElementById('create-doc-modal').classList.remove('hidden');
+        }
+
+        function deleteCustomDoc(key) {
+            playClickSound();
+            if (confirm(`Вы уверены, что хотите уничтожить дело «${documents[key].title}»?`)) {
+                delete documents[key];
+                saveDatabaseToStorage();
+                renderSidebarNav();
+                loadDocument(Object.keys(documents)[0] || 'sitom');
+                showModal('ДЕЛО УНИЧТОЖЕНО', 'Запись и материалы дела удалены из архива.');
+            }
+        }
+
+        // --- CLEARANCE MANAGEMENT LOGIC ---
+        function openClearanceModal() {
+            playClickSound();
+            renderClearanceList();
+            document.getElementById('clearance-modal').classList.remove('hidden');
+        }
+
+        function closeClearanceModal() {
+            playClickSound();
+            document.getElementById('clearance-modal').classList.add('hidden');
+        }
+
+        function renderClearanceList() {
+            const container = document.getElementById('clearance-list-container');
+            container.innerHTML = '';
+            Object.keys(clearanceLevels).forEach(key => {
+                const row = document.createElement('div');
+                row.className = 'flex justify-between items-center bg-white p-2 border border-zinc-300 rounded';
+                row.innerHTML = `
+                    <div>
+                        <strong>[${key.toUpperCase()}]</strong> ${clearanceDisplayNames[key] || ''} 
+                        <span class="text-zinc-500">(Ранг: ${clearanceLevels[key]})</span>
+                    </div>
+                    ${['omega', 'lambda', 'gamma', 'beta', 'alpha'].includes(key) ? '<span class="text-[10px] text-zinc-400">Базовый</span>' : `<button onclick="deleteClearance('${key}')" class="text-red-700 font-bold hover:underline">Удалить</button>`}
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function addNewClearance(e) {
+            e.preventDefault();
+            playStampSound();
+            const keyInput = document.getElementById('new-clr-key').value.trim().toLowerCase();
+            const levelInput = parseInt(document.getElementById('new-clr-level').value) || 3;
+            const nameInput = document.getElementById('new-clr-name').value.trim();
+
+            if (!keyInput || !nameInput) return;
+
+            clearanceLevels[keyInput] = levelInput;
+            clearanceDisplayNames[keyInput] = nameInput;
+
+            saveDatabaseToStorage();
+            populateClearanceSelects();
+            renderClearanceList();
+            e.target.reset();
+            showModal('ДОПУСК ДОБАВЛЕН', `Уровень допуска «${nameInput}» успешно активирован в системе.`);
+        }
+
+        function deleteClearance(key) {
+            playClickSound();
+            if (confirm(`Удалить допуск ${key}?`)) {
+                delete clearanceLevels[key];
+                delete clearanceDisplayNames[key];
+                saveDatabaseToStorage();
+                populateClearanceSelects();
+                renderClearanceList();
+            }
+        }
+
+        // --- PASSWORD MANAGEMENT LOGIC ---
+        function openPasswordModal() {
+            playClickSound();
+            document.getElementById('pwd-modal-agent').value = currentUser.id;
+            document.getElementById('pwd-modal-pass').value = currentUser.password || '';
+            document.getElementById('pwd-modal-secret').value = '';
+            document.getElementById('password-modal').classList.remove('hidden');
+        }
+
+        function closePasswordModal() {
+            playClickSound();
+            document.getElementById('password-modal').classList.add('hidden');
+        }
+
+        function savePasswordSettings(e) {
+            e.preventDefault();
+            playStampSound();
+            const agentName = document.getElementById('pwd-modal-agent').value.trim();
+            const pass = document.getElementById('pwd-modal-pass').value;
+            const secret = document.getElementById('pwd-modal-secret').value.trim().toUpperCase();
+
+            currentUser.id = agentName || currentUser.id;
+            if (pass) currentUser.password = pass;
+
+            if (secret === 'LUBYANKA' || secret === 'ALPHA-99') {
+                currentUser.clearance = 'alpha';
+            } else if (secret === 'BETA-1937') {
+                currentUser.clearance = 'beta';
+            }
+
+            document.getElementById('display-user').innerText = currentUser.id;
+            document.getElementById('display-clearance').innerText = currentUser.clearance.toUpperCase();
+
+            closePasswordModal();
+            showModal('ПАРОЛЬ И НАСТРОЙКИ ОБНОВЛЕНЫ', 'Учетные данные оператора успешно изменены в защищенном реестре.');
+        }
+
+        // --- JSON EXPORT AND IMPORT ---
+        function exportUserData() {
+            playClickSound();
+            const exportData = {
+                documents: documents,
+                clearanceLevels: clearanceLevels,
+                clearanceDisplayNames: clearanceDisplayNames
+            };
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `specxran_archive_${Date.now()}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        function importUserData(event) {
+            playClickSound();
+            const fileReader = new FileReader();
+            fileReader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (imported.documents) {
+                        documents = { ...documents, ...imported.documents };
+                    } else {
+                        documents = { ...documents, ...imported };
+                    }
+                    if (imported.clearanceLevels) {
+                        clearanceLevels = { ...clearanceLevels, ...imported.clearanceLevels };
+                    }
+                    if (imported.clearanceDisplayNames) {
+                        clearanceDisplayNames = { ...clearanceDisplayNames, ...imported.clearanceDisplayNames };
+                    }
+                    saveDatabaseToStorage();
+                    populateClearanceSelects();
+                    renderSidebarNav();
+                    showModal('ИМПОРТ ЗАВЕРШЕН', 'Пользовательские материалы и допуски загружены в базу Спецхрана.');
+                } catch (err) {
+                    showModal('ОШИБКА ИМПОРТА', 'Некорректный формат JSON файла.');
+                }
+            };
+            fileReader.readAsText(event.target.files[0]);
+        }
+
+        // --- CATEGORY AND SEARCH FILTERS ---
+        function filterCategory(cat) {
+            playClickSound();
+            activeCategoryFilter = cat;
+            document.querySelectorAll('.cat-btn').forEach(btn => btn.classList.remove('bg-red-800', 'text-white'));
+            renderSidebarNav();
+        }
+
+        function filterDocuments(query) {
+            playClickSound();
+            const q = query.toLowerCase().trim();
+            const buttons = document.querySelectorAll('#document-nav-list button');
+
+            buttons.forEach(btn => {
+                const text = btn.innerText.toLowerCase();
+                if (text.includes(q)) {
+                    btn.style.display = 'flex';
+                } else {
+                    btn.style.display = 'none';
+                }
+            });
+        }
+
+        // --- ANOMALY SCANNER MODULE ---
+        function openScannerModal() {
+            playTerminalBeep();
+            const select = document.getElementById('scanner-doc-select');
+            select.innerHTML = '';
+
+            Object.keys(documents).forEach(key => {
+                const opt = document.createElement('option');
+                opt.value = key;
+                opt.innerText = `${documents[key].title} (${documents[key].category})`;
+                select.appendChild(opt);
+            });
+
+            document.getElementById('scanner-modal').classList.remove('hidden');
+        }
+
+        function closeScannerModal() {
+            playClickSound();
+            document.getElementById('scanner-modal').classList.add('hidden');
+        }
+
+        function runAnomalyScan() {
+            playTerminalBeep();
+            const key = document.getElementById('scanner-doc-select').value;
+            const doc = documents[key];
+            const out = document.getElementById('scanner-output');
+
+            out.innerHTML = `<span class="text-yellow-400">> Выполняется резонансный анализ объекта «${doc.title}»...</span>`;
+
+            setTimeout(() => {
+                const rad = Math.floor(Math.random() * 80 + 10);
+                const psi = Math.floor(Math.random() * 95 + 5);
+                const danger = doc.clearance === 'alpha' ? 'КРИТИЧЕСКИЙ' : (doc.clearance === 'beta' ? 'ВЫСОКИЙ' : 'УМЕРЕННЫЙ');
+
+                out.innerHTML = `
+                    <div class="text-emerald-400 font-bold">> АНАЛИЗ ЗАВЕРШЕН СУБ-ДЕТЕКТОРОМ ВЕКТОР-2:</div>
+                    <div class="text-zinc-300">• Уровень пси-излучения: <span class="text-amber-400">${psi} %</span></div>
+                    <div class="text-zinc-300">• Радиометрическое отклонение: <span class="text-amber-400">${rad} мкР/ч</span></div>
+                    <div class="text-zinc-300">• Индекс аномальной угрозы: <span class="text-red-400 font-bold">${danger}</span></div>
+                    <div class="text-zinc-400 text-[11px] mt-2 border-t border-amber-900/50 pt-1">
+                        Рекомендация: ${psi > 70 ? 'Требуется свинцовое экранирование класса Завеса-3.' : 'Стационарное хранение в закрытом сейфе.'}
+                    </div>
+                `;
+            }, 800);
+        }
+
+        // --- TERMINAL COMMAND PROCESSOR ---
+        function openTerminalModal() {
+            playTerminalBeep();
+            document.getElementById('terminal-modal').classList.remove('hidden');
+            document.getElementById('terminal-input').focus();
+        }
+
+        function closeTerminalModal() {
+            playClickSound();
+            document.getElementById('terminal-modal').classList.add('hidden');
+        }
+
+        function handleTerminalInput(e) {
+            if (e.key === 'Enter') {
+                executeCommandFromInput();
+            }
+        }
+
+        function executeCommandFromInput() {
+            playTerminalBeep();
+            const input = document.getElementById('terminal-input');
+            const cmd = input.value.trim();
+            if (!cmd) return;
+
+            appendTerminalOutput(`NKVD@specxran:~# ${cmd}`, 'text-emerald-300');
+            processCommand(cmd);
+            input.value = '';
+        }
+
+        function appendTerminalOutput(text, cssClass = 'text-emerald-400') {
+            const output = document.getElementById('terminal-output');
+            const div = document.createElement('div');
+            div.className = cssClass;
+            div.innerHTML = text;
+            output.appendChild(div);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function processCommand(rawCmd) {
+            const parts = rawCmd.split(' ');
+            const cmd = parts[0].toLowerCase();
+            const arg = parts.slice(1).join(' ');
+
+            switch(cmd) {
+                case 'help':
+                    appendTerminalOutput(`Доступные команды терминала:
+  <span class="text-yellow-400">create</span>             - открыть редактор дел
+  <span class="text-yellow-400">clearance</span>          - управление допусками
+  <span class="text-yellow-400">scan</span>               - запустить сканер аномалий
+  <span class="text-yellow-400">status</span>             - состояние сети Спецхрана-А
+  <span class="text-yellow-400">export</span>             - выгрузить архив в JSON
+  <span class="text-yellow-400">override [код]</span>     - ввод шифра (LUBYANKA / BETA-1937)
+  <span class="text-yellow-400">clear</span>              - очистить консоль`);
+                    break;
+                case 'create':
+                    closeTerminalModal();
+                    openCreateDocModal();
+                    break;
+                case 'clearance':
+                    closeTerminalModal();
+                    openClearanceModal();
+                    break;
+                case 'scan':
+                    closeTerminalModal();
+                    openScannerModal();
+                    break;
+                case 'export':
+                    exportUserData();
+                    appendTerminalOutput(`[УСПЕХ] Файл архива сформирован для скачивания.`);
+                    break;
+                case 'status':
+                    appendTerminalOutput(`[ОК] Сеть Спецхрана активна.`);
+                    appendTerminalOutput(`[ОК] Модуль «Сито» функционирует.`);
+                    break;
+                case 'override':
+                    if (arg.toUpperCase() === 'LUBYANKA' || arg.toUpperCase() === 'ALPHA-99') {
+                        currentUser.clearance = 'alpha';
+                        document.getElementById('display-clearance').innerText = 'ALPHA';
+                        appendTerminalOutput(`<span class="text-red-500 font-bold">[УСПЕХ] Активирован абсолютный доступ АЛЬФА.</span>`);
+                    } else {
+                        appendTerminalOutput(`<span class="text-red-600">[ОШИБКА] Неверный секретный код.</span>`);
+                    }
+                    break;
+                case 'clear':
+                    document.getElementById('terminal-output').innerHTML = '';
+                    break;
+                default:
+                    appendTerminalOutput(`Неизвестная команда "${cmd}". Введите <span class="text-yellow-400">help</span>.`);
+            }
+        }
+
+        // --- THEME SWITCHER & UTILS ---
+        function toggleTheme() {
+            playClickSound();
+            const viewer = document.getElementById('viewer-wrapper');
+            const docContainer = document.getElementById('doc-container');
+            const themeBtn = document.getElementById('theme-btn');
+
+            if (currentTheme === 'paper') {
+                currentTheme = 'crt';
+                themeBtn.innerText = "ТЕМА: ТЕРМИНАЛ";
+                viewer.className = "flex-1 bg-zinc-950 p-6 overflow-y-auto flex justify-center items-start crt-scanlines transition-colors duration-300";
+                docContainer.className = "max-w-3xl w-full bg-zinc-950 text-emerald-400 border-2 border-emerald-600 shadow-2xl p-10 crt-bg relative min-h-[780px] flex flex-col terminal-glow transition-all";
+            } else {
+                currentTheme = 'paper';
+                themeBtn.innerText = "ТЕМА: БУМАГА";
+                viewer.className = "flex-1 bg-zinc-900 p-6 overflow-y-auto flex justify-center items-start transition-colors duration-300";
+                docContainer.className = "max-w-3xl w-full bg-[#f4ecd0] text-zinc-900 border-2 border-zinc-700 shadow-2xl p-10 paper-bg relative min-h-[780px] flex flex-col transition-all";
+            }
+        }
+
+        function printCurrentDocument() {
+            playStampSound();
+            const doc = documents[currentDocKey];
+            showModal('ВЫПИСКА ИЗ АРХИВА ОФОРМЛЕНА', `Документ «${doc.title}» подготовлен для фельдъегерской доставки. Номер отправления: NKVD-SPEC-${Math.floor(Math.random()*89999 + 10000)}.`);
+        }
+
+        function showModal(title, text) {
+            playClickSound();
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-text').innerText = text;
+            document.getElementById('message-modal').classList.remove('hidden');
+        }
+
+        function closeMessageModal() {
+            playClickSound();
+            document.getElementById('message-modal').classList.add('hidden');
+        }
+
+        window.onload = function() {
+            loadDatabaseFromStorage();
+        };
+    </script>
+</body>
+</html>
